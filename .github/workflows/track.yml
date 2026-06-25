@@ -1,0 +1,54 @@
+name: Tour Price Tracker
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'   # каждые 2 часа (UTC). Алматы = UTC+5, значит 00,02,04...22 по АЛА
+  workflow_dispatch:          # кнопка ручного запуска в интерфейсе GitHub
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Восстанавливаем prices.db с прошлого запуска
+      - name: Restore price DB
+        uses: actions/cache@v4
+        with:
+          path: prices.db
+          key: prices-db-${{ github.run_id }}
+          restore-keys: prices-db-
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python deps
+        run: pip install playwright requests
+
+      # Кешируем браузер — без этого каждый запуск ~3 мин только на установку
+      - name: Cache Playwright browser
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-1   # поменяй цифру если нужно переустановить
+
+      - name: Install Chromium (если нет в кеше)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: playwright install chromium --with-deps
+
+      - name: Install Chromium system deps (если браузер из кеша)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: playwright install-deps chromium
+
+      - name: Run tracker
+        run: python tracker.py --notify
+        env:
+          TG_TOKEN:   ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
