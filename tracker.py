@@ -34,8 +34,10 @@ from playwright.async_api import async_playwright, Route
 #  НАСТРОЙКИ — заполнить перед запуском
 # ════════════════════════════════════════════════════════════════════
 
-TG_TOKEN   = ""    # от @BotFather
-TG_CHAT_ID = ""      # /getUpdates после /start боту
+import os
+
+TG_TOKEN   = os.environ.get("TG_TOKEN",   "YOUR_BOT_TOKEN")
+TG_CHAT_ID = os.environ.get("TG_CHAT_ID", "YOUR_CHAT_ID")
 
 # Уведомлять если цена упала на ОБА условия одновременно
 MIN_DROP_KZT     = 10_000  # тенге
