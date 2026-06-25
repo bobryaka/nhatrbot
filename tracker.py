@@ -356,11 +356,10 @@ async def run(debug: bool, notify: bool):
             log.warning(f"{site}: цену получить не удалось")
             continue
 
-        db_save(conn, site, price)
-
-        # Сравниваем с последней ценой, о которой уже отправляли уведомление.
-        # Если ни разу не уведомляли — берём исторический минимум.
+        # Базлайн берём ДО сохранения — иначе db_min_ever вернёт текущую цену
         baseline = db_last_notified(conn, site) or db_min_ever(conn, site)
+
+        db_save(conn, site, price)
 
         if baseline is None:
             log.info(f"{site}: первая запись → {price:,.0f} ₸")
