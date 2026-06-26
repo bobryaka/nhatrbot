@@ -42,6 +42,7 @@ TG_CHAT_ID = os.environ.get("TG_CHAT_ID", "YOUR_CHAT_ID")
 # Уведомлять если цена упала на ОБА условия одновременно
 MIN_DROP_KZT     = 10_000  # тенге
 MIN_DROP_PERCENT = 2.0     # процентов
+ALERT_BELOW_KZT  = 350_000 # сразу слать если цена упала ниже этой отметки
 
 DB_PATH = "prices.db"
 
@@ -374,29 +375,34 @@ async def run(debug: bool, notify: bool):
         )
 
         if drop >= MIN_DROP_KZT and drop_pct >= MIN_DROP_PERCENT:
-            msg = (
-                f"🔥 Цена снизилась!\n\n"
-                f"Алматы → Нячанг (Вьетнам)\n"
-                f"Вылет: {DEPART_DATE_PD}  ·  Возврат: {RETURN_DATE}\n"
-                f"{NIGHTS} ночей  ·  {ADULTS} взр.\n"
-                f"Источник: {site}\n\n"
-                f"Было:  {baseline:,.0f} ₸\n"
-                f"Стало: {price:,.0f} ₸\n"
-                f"Скидка: −{drop:,.0f} ₸ ({drop_pct:.1f}%)\n\n"
-                f"{datetime.now().strftime('%d.%m.%Y %H:%M')}"
-            )
-            print(f"\n{'='*50}\n{msg}\n{'='*50}\n")
-            tg_send(
-                msg.replace("🔥 Цена снизилась!", "🔥 <b>Цена снизилась!</b>")
-                   .replace("Алматы → Нячанг", "Алматы → <b>Нячанг</b>")
-                   .replace(f"Источник: {site}", f"Источник: <b>{site}</b>")
-                   .replace(f"Стало: {price:,.0f} ₸", f"Стало: <b>{price:,.0f} ₸</b>")
-                   .replace("Скидка:", "📉 Скидка:"),
-                notify=notify,
-            )
-            db_set_notified(conn, site, price)
+            reason = f"−{drop:,.0f} ₸ ({drop_pct:.1f}%)"
+        elif price < ALERT_BELOW_KZT:
+            reason = f"цена ниже {ALERT_BELOW_KZT:,} ₸!"
         else:
             log.info(f"{site}: ниже порога ({MIN_DROP_KZT:,} ₸ / {MIN_DROP_PERCENT}%), молчим")
+            continue
+
+        msg = (
+            f"🔥 Цена снизилась!\n\n"
+            f"Алматы → Нячанг (Вьетнам)\n"
+            f"Вылет: {DEPART_DATE_PD}  ·  Возврат: {RETURN_DATE}\n"
+            f"{NIGHTS} ночей  ·  {ADULTS} взр.\n"
+            f"Источник: {site}\n\n"
+            f"Было:  {baseline:,.0f} ₸\n"
+            f"Стало: {price:,.0f} ₸\n"
+            f"Скидка: {reason}\n\n"
+            f"{datetime.now().strftime('%d.%m.%Y %H:%M')}"
+        )
+        print(f"\n{'='*50}\n{msg}\n{'='*50}\n")
+        tg_send(
+            msg.replace("🔥 Цена снизилась!", "🔥 <b>Цена снизилась!</b>")
+               .replace("Алматы → Нячанг", "Алматы → <b>Нячанг</b>")
+               .replace(f"Источник: {site}", f"Источник: <b>{site}</b>")
+               .replace(f"Стало: {price:,.0f} ₸", f"Стало: <b>{price:,.0f} ₸</b>")
+               .replace("Скидка:", "📉 Скидка:"),
+            notify=notify,
+        )
+        db_set_notified(conn, site, price)
 
     conn.close()
 
